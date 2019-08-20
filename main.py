@@ -1,6 +1,17 @@
 from threading import Condition, Thread
 from time import sleep, time
 from random import choice, randint
+import numpy as np
+
+util_time = 0
+NUM_PERSONS = 300
+NUM_BOXES = 5
+genders = ['male', 'female', 'non-binary']
+counter_genders = [0, 0, 0]
+queue = []
+male_waiting_times = []
+female_waiting_times = []
+nonbinary_waiting_times = []
 
 
 class Timer(Thread):
@@ -12,24 +23,28 @@ class Timer(Thread):
     def run(self):
         print('Timer started')
         while(True):
+            # Espera alguém entrar no banheiro
             with(self.condition):
-                while(bathroom.is_empty and qtd_persons != NUM_PERSONS):
+                while(bathroom.is_empty and qtd_persons < NUM_PERSONS):
                     self.condition.wait()
 
             # Há alguém no banheiro
-            tempo_inicial = time()
+            tempo_inicial = time()  # Momento que alguém entra
             # Espera o banheiro esvaziar
             with(self.condition):
-                while(not bathroom.is_empty and qtd_persons != NUM_PERSONS):
+                while((not bathroom.is_empty) and qtd_persons < NUM_PERSONS):
                     self.condition.wait()
 
             # Banheiro Vazio
             # Atualiza o tempo
-            self.time += (time() - tempo_inicial)
+            dif = time() - tempo_inicial
+            self.time += dif
             # Checa se todos já utilizaram o banheiro
             if(qtd_persons == NUM_PERSONS):
+                global util_time
                 print('Timer finished')
-                print('Time: {}'.format(self.time))
+                print('Util Time: {0:.2f}s'.format(self.time))
+                util_time = self.time
                 break
 
 
@@ -49,9 +64,17 @@ class Person(Thread):
         s = 'Person {} arrives (Gender: {})\n-----'.format(self.i, self.gender)
         print(s)
         # Pessoa i entra na fila
+        start_waiting_time = time()  # Momento que a pessoa i entra na fila
         queue.append(self)
         # Pessoa i entra no banheiro
         self.enter_bathroom()
+        # Salva o tempo de espera
+        if(self.gender == 'male'):
+            male_waiting_times.append(time() - start_waiting_time)
+        elif(self.gender == 'female'):
+            female_waiting_times.append(time() - start_waiting_time)
+        else:
+            nonbinary_waiting_times.append(time() - start_waiting_time)
         # Pessoa i utiliza o banheiro por 5 segundos
         print('Person {} in the bathroom\n-----'.format(self.i))
         sleep(5)
@@ -97,6 +120,8 @@ class Person(Thread):
         # Sai da fila e entra no banheiro
         queue.remove(self)
         bathroom.append(self)
+        with(self.condition):
+            self.condition.notify_all()
 
     def leave_bathroom(self):
         with(self.condition):
@@ -131,12 +156,7 @@ class Bathroom:
         return len(self.persons) == 0
 
 
-genders = ['male', 'female', 'non-binary']
-counter_genders = [0, 0, 0]
-NUM_PERSONS = 9
-NUM_BOXES = 2
 bathroom = Bathroom(num_boxes=NUM_BOXES)
-queue = []
 qtd_persons = 0
 
 
@@ -148,6 +168,7 @@ def main():
     t = Timer(cv)
     t.start()
     # For para criação de Threads
+    tt = time()
     for i in range(NUM_PERSONS):
         # Escolhendo aleatoriamente um gênero válido
         flag = False
@@ -162,6 +183,26 @@ def main():
         p.start()
         # Espera entre 1 e 7 segundos para chegar outra pessoa
         sleep(randint(1, 7))
+
+    # Espera todas as threads encerrarem
+    while(qtd_persons < NUM_PERSONS):
+        pass
+
+    with(cv):
+        cv.notify_all()
+
+    t.join()
+    total_time = time() - tt
+    print('Total time: {0:.2f}s'.format(total_time))
+    print('Usage rate: {0:.2f}%'.format(100 * (util_time / total_time)))
+    print('Number of users by gender:')
+    print('Male: {}'.format(counter_genders[0]))
+    print('Female: {}'.format(counter_genders[1]))
+    print('Non-binary: {}'.format(counter_genders[2]))
+    print('Average waiting time by gender')
+    print('Male: {0:.2f}s'.format(np.mean(male_waiting_times)))
+    print('Female: {0:.2f}s'.format(np.mean(female_waiting_times)))
+    print('Non-binary: {0:.2f}s'.format(np.mean(nonbinary_waiting_times)))
 
 
 if(__name__ == '__main__'):
