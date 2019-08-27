@@ -6,7 +6,7 @@ import numpy as np
 util_time = 0
 NUM_PERSONS = 300
 NUM_BOXES = 5
-genders = ['male', 'female', 'non-binary']
+genders = ['homem', 'mulher', 'não-binário']
 counter_genders = [0, 0, 0]
 queue = []
 male_waiting_times = []
@@ -21,7 +21,7 @@ class Timer(Thread):
         self.time = 0
 
     def run(self):
-        print('Timer started')
+        print('Timer iniciado')
         while(True):
             # Espera alguém entrar no banheiro
             with(self.condition):
@@ -42,8 +42,8 @@ class Timer(Thread):
             # Checa se todos já utilizaram o banheiro
             if(qtd_persons == NUM_PERSONS):
                 global util_time
-                print('Timer finished')
-                print('Util Time: {0:.2f}s'.format(self.time))
+                print('Timer encerrado')
+                print('Tempo de Utilização: {0:.2f}s'.format(self.time))
                 util_time = self.time
                 break
 
@@ -56,12 +56,12 @@ class Person(Thread):
         self.i = i
 
     def __str__(self):
-        return 'Person {} ({})'.format(self.id, self.gender)
+        return 'Pessoa {} ({})'.format(self.id, self.gender)
 
     def run(self):
         global qtd_persons
         # Pessoa i chega para utilizar o banheiro
-        s = 'Person {} arrives (Gender: {})\n-----'.format(self.i, self.gender)
+        s = 'Pessoa {} chegou (Gênero: {})\n-----'.format(self.i, self.gender)
         print(s)
         # Pessoa i entra na fila
         start_waiting_time = time()  # Momento que a pessoa i entra na fila
@@ -69,18 +69,18 @@ class Person(Thread):
         # Pessoa i entra no banheiro
         self.enter_bathroom()
         # Salva o tempo de espera
-        if(self.gender == 'male'):
+        if(self.gender == 'homem'):
             male_waiting_times.append(time() - start_waiting_time)
-        elif(self.gender == 'female'):
+        elif(self.gender == 'mulher'):
             female_waiting_times.append(time() - start_waiting_time)
         else:
             nonbinary_waiting_times.append(time() - start_waiting_time)
         # Pessoa i utiliza o banheiro por 5 segundos
-        print('Person {} in the bathroom\n-----'.format(self.i))
+        print('Pessoa {} no banheiro\n-----'.format(self.i))
         sleep(5)
         # Pessoa i sai do Banheiro e vai embora
         self.leave_bathroom()
-        print('Person {} leaves the bathroom\n-----'.format(self.i))
+        print('Pessoa {} saiu do banheiro\n-----'.format(self.i))
         # Atualiza o contador de pessoas
         qtd_persons += 1
 
@@ -89,6 +89,9 @@ class Person(Thread):
             while(True):
                 # Se não for o primeiro da fila, dorme
                 if(queue.index(self) > 0):
+                    s = 'Pessoa {} não entrou por não ser o primeiro ' \
+                        'da fila\n-----'.format(self.i)
+                    print(s)
                     self.condition.wait()
                     continue
 
@@ -97,6 +100,9 @@ class Person(Thread):
                 # Checa se o banheiro está cheio
                 # Se estiver cheio, dorme
                 if(bathroom.is_full):
+                    s = 'Pessoa {} não entrou pois o banheiro estava cheio' \
+                        '\n-----'.format(self.i)
+                    print(s)
                     self.condition.wait()
                     continue
 
@@ -111,6 +117,9 @@ class Person(Thread):
 
                 # Checa o "gênero do banheiro"
                 if(bathroom.gender != self.gender):
+                    s = 'Pessoa {} não entrou pois outro gênero estava no ' \
+                        'banheiro\n-----'.format(self.i)
+                    print(s)
                     self.condition.wait()
                     continue
 
@@ -193,16 +202,17 @@ def main():
 
     t.join()
     total_time = time() - tt
-    print('Total time: {0:.2f}s'.format(total_time))
-    print('Usage rate: {0:.2f}%'.format(100 * (util_time / total_time)))
-    print('Number of users by gender:')
-    print('Male: {}'.format(counter_genders[0]))
-    print('Female: {}'.format(counter_genders[1]))
-    print('Non-binary: {}'.format(counter_genders[2]))
-    print('Average waiting time by gender')
-    print('Male: {0:.2f}s'.format(np.mean(male_waiting_times)))
-    print('Female: {0:.2f}s'.format(np.mean(female_waiting_times)))
-    print('Non-binary: {0:.2f}s'.format(np.mean(nonbinary_waiting_times)))
+    print('Tempo total: {0:.2f}s'.format(total_time))
+    usage_rate = 100 * (util_time / total_time)
+    print('Taxa de Utilização: {0:.2f}%'.format(usage_rate))
+    print('Número de usuários por gênero:')
+    print('Homens: {}'.format(counter_genders[0]))
+    print('Mulheres: {}'.format(counter_genders[1]))
+    print('Não-binários: {}'.format(counter_genders[2]))
+    print('Tempo médio de espera por gênero:')
+    print('Homens: {0:.2f}s'.format(np.mean(male_waiting_times)))
+    print('Mulheres: {0:.2f}s'.format(np.mean(female_waiting_times)))
+    print('Não-binários: {0:.2f}s'.format(np.mean(nonbinary_waiting_times)))
 
 
 if(__name__ == '__main__'):
